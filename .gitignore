@@ -1,0 +1,4 @@
+/bin/
+*.jar
+receipt-audit.json
+receipt-audit.md
