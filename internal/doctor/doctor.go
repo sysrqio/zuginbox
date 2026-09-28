@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 )
 
 // Result summarizes environment checks.
@@ -22,7 +24,28 @@ func Check(mustangJar string) Result {
 		r.JavaOK = true
 		r.JavaPath = p
 	} else {
-		r.Messages = append(r.Messages, "java: not found on PATH (optional for offline XML audit)")
+		r.Messages = append(r.Messages, "java: not found on PATH — install a JRE 11+ for ZUGFeRD PDF validation (offline XML audit still works)")
+	}
+	if mustangJar == "" {
+		r.Messages = append(r.Messages, "mustang jar: not configured (use --mustang-jar or scripts/fetch-mustang.sh)")
+		return r
+	}
+	if _, err := os.Stat(mustangJar); err == nil {
+		r.JarOK = true
+	} else {
+		r.Messages = append(r.Messages, fmt.Sprintf("mustang jar: missing at %s", mustangJar))
+	}
+	return r
+}
+
+// CheckWithPath is like Check but uses pathEnv only for java lookup (for tests).
+func CheckWithPath(mustangJar, pathEnv string) Result {
+	r := Result{JarPath: mustangJar}
+	if p, ok := findJavaOnPath(pathEnv); ok {
+		r.JavaOK = true
+		r.JavaPath = p
+	} else {
+		r.Messages = append(r.Messages, "java: not found on PATH — install a JRE 11+ for ZUGFeRD PDF validation (offline XML audit still works)")
 	}
 
 	if mustangJar == "" {
@@ -56,4 +79,30 @@ func (r Result) Print() {
 	for _, m := range r.Messages {
 		fmt.Printf("  note: %s\n", m)
 	}
+}
+
+// ExitCode returns 0 when Java is available (and configured JAR exists when set), else 1.
+func (r Result) ExitCode() int {
+	if !r.JavaOK {
+		return 1
+	}
+	if r.JarPath != "" && !r.JarOK {
+		return 1
+	}
+	return 0
+}
+
+func findJavaOnPath(pathEnv string) (string, bool) {
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			continue
+		}
+		candidate := filepath.Join(dir, "java")
+		if st, err := os.Stat(candidate); err == nil && !st.IsDir() {
+			if st.Mode()&0o111 != 0 || strings.HasSuffix(candidate, ".exe") {
+				return candidate, true
+			}
+		}
+	}
+	return "", false
 }

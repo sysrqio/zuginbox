@@ -38,13 +38,14 @@ zuginbox version
 | Code | Meaning |
 |-----:|---------|
 | 0 | All receipts valid |
-| 1 | I/O error or Java/Mustang failure |
-| 2 | Invalid receipt, or warn when `--fail-on-warn` |
+| 1 | I/O error, Java/Mustang failure, or `doctor` when Java (or configured JAR) is missing |
+| 2 | Invalid receipt, PDF/XML consistency failure, or warn when `--fail-on-warn` |
 
 ## Offline vs Mustang
 
 - **XML:** Built-in checks for BT-1 (invoice number), BT-24 (specification ID), and document totals. No network calls during `audit`.
 - **PDF:** Without `--mustang-jar`, PDFs are listed with `validation=warn` and a note to install Java + Mustang. Use `scripts/fetch-mustang.sh` to download the JAR (not vendored in git).
+- **PDF/XML consistency:** When `invoice.pdf` and `invoice.xml` share a basename in the same folder, totals are compared offline (PDF total marker in the file stream vs. XML `GrandTotalAmount`).
 
 ## Development
 

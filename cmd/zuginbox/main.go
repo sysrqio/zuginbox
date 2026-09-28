@@ -88,7 +88,7 @@ func newAuditCmd() *cobra.Command {
 }
 
 func defaultFixtureDir() string {
-	for _, p := range []string{"testdata/fixtures", "../testdata/fixtures"} {
+	for _, p := range []string{"testdata/fixtures", "../testdata/fixtures", "../../testdata/fixtures"} {
 		if st, err := os.Stat(p); err == nil && st.IsDir() {
 			return p
 		}
@@ -112,7 +112,11 @@ func newDoctorCmd() *cobra.Command {
 		Use:   "doctor",
 		Short: "Check Java and Mustang JAR availability",
 		Run: func(cmd *cobra.Command, args []string) {
-			doctor.Check(mustangJar).Print()
+			res := doctor.Check(mustangJar)
+			res.Print()
+			if code := res.ExitCode(); code != 0 {
+				os.Exit(code)
+			}
 		},
 	}
 	cmd.Flags().StringVar(&mustangJar, "mustang-jar", "", "Path to Mustang JAR to verify")

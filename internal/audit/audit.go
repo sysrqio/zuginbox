@@ -24,12 +24,18 @@ type Options struct {
 
 // Receipt is one audited file entry in the report.
 type Receipt struct {
-	Path       string   `json:"path"`
-	Kind       string   `json:"kind"` // xml | pdf
-	Validation string   `json:"validation"`
-	Issues     []string `json:"issues,omitempty"`
-	Notes      []string `json:"notes,omitempty"`
-	Fields     map[string]string `json:"fields,omitempty"`
+	Path        string       `json:"path"`
+	Kind        string       `json:"kind"` // xml | pdf
+	Validation  string       `json:"validation"`
+	Issues      []string     `json:"issues,omitempty"`
+	Notes       []string     `json:"notes,omitempty"`
+	Fields      map[string]string `json:"fields,omitempty"`
+	Consistency *Consistency `json:"consistency,omitempty"`
+}
+
+type receiptEntry struct {
+	path string
+	rec  Receipt
 }
 
 // Report is the full audit output document.
@@ -42,10 +48,11 @@ type Report struct {
 }
 
 type Summary struct {
-	Total   int `json:"total"`
-	Valid   int `json:"valid"`
-	Invalid int `json:"invalid"`
-	Warn    int `json:"warn"`
+	Total           int `json:"total"`
+	Valid           int `json:"valid"`
+	Invalid         int `json:"invalid"`
+	Warn            int `json:"warn"`
+	ConsistencyFail int `json:"consistency_fail"`
 }
 
 // Run executes the audit and returns exit code: 0 ok, 1 IO/java, 2 invalid/warn with fail-on-warn.
@@ -91,11 +98,17 @@ func Run(opts Options) (int, error) {
 		Mode:        mode,
 	}
 
+	var entries []receiptEntry
 	for _, f := range files {
 		rec, ioErr := auditFile(f, useMustang, opts.MustangJar)
 		if ioErr != nil {
 			return 1, ioErr
 		}
+		entries = append(entries, receiptEntry{path: f, rec: rec})
+	}
+	report.Summary.ConsistencyFail = applyConsistencyChecks(entries)
+	for _, e := range entries {
+		rec := e.rec
 		report.Receipts = append(report.Receipts, rec)
 		switch rec.Validation {
 		case "valid":
@@ -131,6 +144,9 @@ func Run(opts Options) (int, error) {
 	}
 
 	if report.Summary.Invalid > 0 {
+		return 2, nil
+	}
+	if report.Summary.ConsistencyFail > 0 {
 		return 2, nil
 	}
 	if opts.FailOnWarn && report.Summary.Warn > 0 {
@@ -248,8 +264,8 @@ func writeMarkdown(path string, report Report) error {
 }
 
 func printTable(report Report) {
-	fmt.Printf("zuginbox audit (%s) — %d file(s): valid=%d invalid=%d warn=%d\n",
-		report.Mode, report.Summary.Total, report.Summary.Valid, report.Summary.Invalid, report.Summary.Warn)
+	fmt.Printf("zuginbox audit (%s) — %d file(s): valid=%d invalid=%d warn=%d consistency_fail=%d\n",
+		report.Mode, report.Summary.Total, report.Summary.Valid, report.Summary.Invalid, report.Summary.Warn, report.Summary.ConsistencyFail)
 	for _, r := range report.Receipts {
 		fmt.Printf("  %s [%s] %s\n", r.Path, r.Kind, r.Validation)
 		for _, iss := range r.Issues {
