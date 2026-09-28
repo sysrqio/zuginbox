@@ -1,0 +1,46 @@
+version: 2
+
+project_name: zuginbox
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: zuginbox
+    main: ./cmd/zuginbox
+    binary: zuginbox
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X github.com/sysrqio/zuginbox/internal/version.Version={{.Version}}
+      - -X github.com/sysrqio/zuginbox/internal/version.Commit={{.Commit}}
+      - -X github.com/sysrqio/zuginbox/internal/version.Date={{.Date}}
+
+archives:
+  - formats:
+      - tar.gz
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - "^docs:"
+      - "^test:"
+      - "^ci:"
+
+release:
+  github:
+    owner: sysrqio
+    name: zuginbox
